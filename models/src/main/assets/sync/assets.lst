@@ -1,0 +1,15 @@
+model-android/README
+model-android/am/final.mdl
+model-android/conf/mfcc.conf
+model-android/conf/model.conf
+model-android/graph/Gr.fst
+model-android/graph/HCLr.fst
+model-android/graph/disambig_tid.int
+model-android/graph/phones/word_boundary.int
+model-android/graph/words.txt
+model-android/ivector/final.dubm
+model-android/ivector/final.ie
+model-android/ivector/final.mat
+model-android/ivector/global_cmvn.stats
+model-android/ivector/online_cmvn.conf
+model-android/ivector/splice.conf

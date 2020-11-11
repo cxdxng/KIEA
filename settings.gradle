@@ -1,0 +1,3 @@
+include ':models', ':aars', ':app'
+
+rootProject.name = "KIEA"
