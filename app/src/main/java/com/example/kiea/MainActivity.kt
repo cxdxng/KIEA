@@ -33,8 +33,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
 
     //Define TextToSpeech
     lateinit var tts:TextToSpeech
-    //Define DatabaseHelper
-    lateinit var myDb:DatabaseHelper
+    
     //Define Model
     private var model: Model? = null
     //Define SpeechRecognizer
@@ -76,8 +75,6 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
             if (isChecked) result_text.visibility = View.VISIBLE
             else result_text.visibility = View.INVISIBLE
         }
-        //Initiate DatabaseHelper Object
-        myDb = DatabaseHelper(this)
         //Set UI state to start
         setUiState(STATE_START)
         //Does what it says
@@ -201,7 +198,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
                 //Convert ID from word to integer
                 val id = BackgroundTasks().getNumbersFromWords(split[1])
                 //Insert data into Sqlite database
-                val isInserted = myDb.insertData(split[0], id, "nicht vorhanden")
+                
                 //Check if insert succeeded
                 if (isInserted != null) speak("Erfolgreich eingetragen\n Neue Kennung: $isInserted")
                 else speak("Fehler")
@@ -223,7 +220,8 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
             //When requestCode is 104, delete an entry from Sqlite database
             104 -> {
                 val id = BackgroundTasks().getNumbersFromWords(text).toString()
-                val status = myDb.deleteEntry(id)
+                //Insert data into Sqlite database
+
                 if (status > 0) speak("Eintrag gelöscht")
                 else speak("Fehler, Eintrag nicht gelöscht")
                 //Reset the requestCode to 100
@@ -359,7 +357,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         //Encode the ByteArray into an base64 string
         val encodedString = Base64.encodeToString(b, Base64.DEFAULT)
         //Insert Facedata into the Sqlite database
-        val success = myDb.addFaceData(encodedString, msg)
+
         //Check if insert succeeded
         if (success) speak("Gesicht erfolgreich hinzugefügt")
     }
@@ -390,7 +388,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         //Output all entries from Sqlite database
         if (msg == "datenbank anzeigen"){
             //Get data from database
-            val cursor = myDb.getAllData()
+
             if (cursor.count == 0){
                 Log.e("ERROR", "Database is empty")
                 speak("Keine Daten vorhanden")
@@ -419,7 +417,8 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         else if (msg.contains("gesicht löschen")){
             //Split msg to get ID
             val split = msg.split(" ")
-            myDb.deleteFaceData(split[3])
+            //Delete Face Data here
+
             speak("Gesichtsdaten erfolgreich gelöscht")
         }
         //Output all data from requested ID
@@ -429,8 +428,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
             //convert ID from word into Integer
             val id = BackgroundTasks().getNumbersFromWords(split[2]).toString()
             //Select entry from DB
-            val cursor = myDb.selectEntry(id)
-
+            
             val stringBuffer = StringBuffer()
             //Use Cursor to get properties from current ID and store them in a stringBuffer
             while (cursor.moveToNext()){
