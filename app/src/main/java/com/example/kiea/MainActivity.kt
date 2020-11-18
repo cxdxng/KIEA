@@ -33,11 +33,6 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
 
     //Define TextToSpeech
     lateinit var tts:TextToSpeech
-    
-    //Define Model
-    private var model: Model? = null
-    //Define SpeechRecognizer
-    private var recognizer: SpeechRecognizer? = null
     //Define msg String in which the result of Vosk api gets saved
     var msg:String = ""
     //Create variable for current request Code so that we can get the current action
@@ -93,165 +88,19 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
             recognizeMicrophone()
         }
     }
-
-    class SetupTask(activity: MainActivity) : AsyncTask<Void, Void, Exception>() {
-        //Get an activity reference
-        var activityReference: WeakReference<MainActivity>
-
-        init {
-            this.activityReference = WeakReference(activity)
-        }
-
-        //Load Vosk Api and model in AsyncTask
-        override fun doInBackground(vararg p0: Void?): Exception? {
-            try {
-
-                //Set the assets for Vosk Api
-                val assets = Assets(activityReference.get())
-                val assetDir = assets.syncAssets()
-                Log.d("KIEA", "Sync files in the folder $assetDir")
-                //Set the Log level from Vosk Api to -1 to disable logging
-                Vosk.SetLogLevel(-1)
-                //Set the language model which is a german one
-                activityReference.get()!!.model = Model("$assetDir/model-android")
-
-            }catch (e: IOException){
-                return e
-            }
-            return null
-        }
-
-        //If AsyncTask has finished set Ui states to Ready
-        override fun onPostExecute(result: Exception?) {
-            super.onPostExecute(result)
-            activityReference.get()?.setUiState(1)
-        }
-    }
     //Check for Permissions
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String?>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 1) {
             if (grantResults.size > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Recognizer initialization is a time-consuming and it involves IO,
-                // so we execute it in async task
-                SetupTask(this).execute()
+                //Get permission form Microphone and Internet
             } else {
                 finish()
             }
         }
     }
 
-    //Shutdown the recognizer
-    override fun onDestroy() {
-        super.onDestroy()
-        if (recognizer != null) {
-            recognizer!!.cancel()
-            recognizer!!.shutdown()
-        }
-    }
 
-    //Get result from Vosk Api
-    override fun onResult(p0: String) {
-        setUiState(STATE_DONE)
-        textViewKIEAStatus.text = "K.I.E.A Bereit"
-        recognizer!!.cancel()
-        recognizer = null
-
-        //Remove debugging info and extract pure result from JSON format
-        val jres = JSONObject(p0)
-        val text: String = jres["text"] as String
-
-        //Set msg to have the value of text in global variable
-        msg = text
-        //Show result message to the user in TextView
-        textViewInfo.text = text
-
-        //Check current requestCode
-        when (currentRequestCode){
-            //When requestCode is 100, create a normal request
-            100 -> {
-                //Check if there is a follow-up request, and if so, change current request code according to action
-                if (text == "eintrag hinzufügen") {
-                    speak("Name und Jahr bitte")
-                    currentRequestCode = 101
-                    while (tts.isSpeaking) {}
-                    recognizeMicrophone()
-                } else if (text == "selbst zerstörung" || text == "selbst zerstören") {
-                    speak("Sind sie sicher?")
-                    currentRequestCode = 103
-                    while (tts.isSpeaking) {}
-                    recognizeMicrophone()
-                } else if (text == "eintrag löschen") {
-                    speak("Kennung bitte")
-                    currentRequestCode = 104
-                    while (tts.isSpeaking) {
-                    }
-                    recognizeMicrophone()
-                }
-                //Execute the receive method to process the result
-                receive(text)
-            }
-            //When requestCode is 101, then create a new Entry in Sqlite database
-            101 -> {
-                //Split result into segments to get the ID
-                val split = text.split(" ")
-                //Convert ID from word to integer
-                val id = BackgroundTasks().getNumbersFromWords(split[1])
-                //Insert data into Sqlite database
-                
-                //Check if insert succeeded
-                if (isInserted != null) speak("Erfolgreich eingetragen\n Neue Kennung: $isInserted")
-                else speak("Fehler")
-                //Reset the requestCode to 100
-                currentRequestCode = 100
-            }
-            //When request is 103, initiate self-destruction
-            103 -> {
-                if (msg == "ja") {
-                    Log.e("JAWOHL", "ALLA")
-                    myDb.deleteAllData()
-                    speak("Datenbank erfolgreich zerstört")
-                } else if (msg == "nein") {
-                    speak("Vorgang abgebrochen")
-                }
-                //Reset the requestCode to 100
-                currentRequestCode = 100
-            }
-            //When requestCode is 104, delete an entry from Sqlite database
-            104 -> {
-                val id = BackgroundTasks().getNumbersFromWords(text).toString()
-                //Insert data into Sqlite database
-
-                if (status > 0) speak("Eintrag gelöscht")
-                else speak("Fehler, Eintrag nicht gelöscht")
-                //Reset the requestCode to 100
-                currentRequestCode = 100
-            }
-        }
-    }
-
-    //Get a partial result from Vosk Api
-    override fun onPartialResult(p0: String?) {
-        //Remove debugging info and extract pure result from JSON format
-        val jres = JSONObject(p0)
-        val text: String = jres["partial"] as String
-        //Show user the partial result
-        textViewInfo.text = text
-
-    }
-
-    //Handle Timeout
-    override fun onTimeout() {
-        recognizer!!.cancel()
-        recognizer = null
-        setUiState(STATE_READY)
-    }
-
-    //Handle errors from Vosk Api
-    override fun onError(p0: java.lang.Exception?) {
-        //Display the Errors if there are any
-        result_text.append("${p0.toString()}\n")
-    }
 
     //Set various UI states
     fun setUiState(state: Int){
@@ -281,29 +130,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         }
     }
 
-    //Set the ErrorState
-    fun setErrorState(message: String){
-        result_text.text = message
-        buttonTrigger.isEnabled = false
-    }
 
-    //Start recognition via Microphone
-    fun recognizeMicrophone(){
-            if (recognizer != null) {
-                setUiState(STATE_DONE)
-                recognizer!!.cancel()
-                recognizer = null
-            } else {
-                setUiState(STATE_MIC)
-                try {
-                    recognizer = SpeechRecognizer(model)
-                    recognizer!!.addListener(this)
-                    recognizer!!.startListening()
-                } catch (e: IOException) {
-                    setErrorState(e.message!!)
-                }
-            }
-    }
 
     //Get the image from  ImagePickerActivity back to pass it to convertToBase64 method
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -375,14 +202,6 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         imageView.setImageDrawable(BitmapDrawable(resources, tempBitmap))
     }
 
-    //Method to handle speech output
-    fun speak(msg: String){
-        //Set rate at which speech should happen
-        tts.setSpeechRate(1.7f)
-        //add the stuff to say to queue
-        tts.speak(msg, TextToSpeech.QUEUE_ADD, null)
-    }
-
     //Receive result from Vosk Api and process it
     fun receive(msg: String){
         //Output all entries from Sqlite database
@@ -391,7 +210,6 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
 
             if (cursor.count == 0){
                 Log.e("ERROR", "Database is empty")
-                speak("Keine Daten vorhanden")
             }
 
             val stringBuffer = StringBuffer()
@@ -402,9 +220,6 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
                 stringBuffer.append("\nName: ${cursor.getString(1)}")
                 stringBuffer.append("\nGeboren: ${cursor.getString(2)}")
             }
-
-            //Output data via speak method
-            speak(stringBuffer.toString())
 
         }
         //Add a facedata to ID in database
@@ -419,7 +234,6 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
             val split = msg.split(" ")
             //Delete Face Data here
 
-            speak("Gesichtsdaten erfolgreich gelöscht")
         }
         //Output all data from requested ID
         else if (msg.contains("info kennung")){
@@ -446,15 +260,9 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
                 }
             }
 
-            //Output data via speak method
-            speak(stringBuffer.toString())
-
         }
 
         else if (msg == "herunterfahren"){
-            speak("Shut down initialisiert,\n bis dann Sir")
-            while (tts.isSpeaking){}
-            tts.shutdown()
             finish()
         }
     }
@@ -462,10 +270,5 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
 /*
 INDEX LIST OF ID'S IN SQLITE DATABASE
     1 Marlon
-    2 Schatz
-    3 Michi
-    4 Max
-    5 Tim
-    6 Beverly
     7 TestUser
 */
